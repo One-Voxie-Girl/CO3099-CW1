@@ -4,12 +4,14 @@ import javax.crypto.Cipher;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.File;
+import java.math.BigInteger;
 import java.net.Socket;
 import java.nio.file.Files;
 import java.security.*;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.X509EncodedKeySpec;
+import java.util.Arrays;
 
 public class Client {
 
@@ -59,9 +61,9 @@ public class Client {
 
 
             //print for debugging remove later
-            System.out.println(pubClientKey);
-            System.out.println(prvClientKey);
-            System.out.println(pubServerKey);
+//            System.out.println(pubClientKey);
+//            System.out.println(prvClientKey);
+//            System.out.println(pubServerKey);
 
         } catch (NoSuchAlgorithmException | InvalidKeySpecException e) {
             throw new RuntimeException(e);
@@ -79,7 +81,7 @@ public class Client {
             MessageDigest md = MessageDigest.getInstance("MD5");
             md.update(secretstring.getBytes());
             byte[] digest = md.digest();
-            String uidHex = bytesToHexString(digest);
+            String uidHex = bytesToString(digest);
 
 
             //sending uid to server
@@ -89,20 +91,20 @@ public class Client {
             //receiving reply from server
             DataInputStream dis = new DataInputStream(s.getInputStream());
             String reply = dis.readUTF();
-            System.out.println(reply);
+            System.out.println("there are " +reply+" messages to be received");
             for (int i = 0; i < (Integer.parseInt(reply)); i++) {
                 //receiving encrypted message from server
                 String ts = dis.readUTF();
                 String encMessage = dis.readUTF();
                 String signatureString = dis.readUTF();
 
-                //print for debugging remove later
-                System.out.println("Timestamp: " + ts);
-                System.out.println("Encrypted Message: " + encMessage);
-                System.out.println("Signature: " + signatureString);
+                //TODO:print for debugging remove later
+//                System.out.println("Timestamp: " + ts);
+//                System.out.println("Encrypted Message: " + encMessage);
+//                System.out.println("Signature: " + signatureString);
 
                 //verify signature
-                byte[] signatureBytes = hexStringToByteArray(signatureString);
+                byte[] signatureBytes = stringToBytes(signatureString);
                 Signature sig = Signature.getInstance("SHA256withRSA");
                 sig.initVerify(pubServerKey);
                 sig.update((ts+encMessage).getBytes());
@@ -112,8 +114,23 @@ public class Client {
                     System.out.println("Signature verification failed");
                     break;
                 }
+
+                //decryption of message
+                Cipher cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
+                cipher.init(Cipher.DECRYPT_MODE, prvClientKey);
+
+                byte[] decryptedMessage = cipher.doFinal(stringToBytes(encMessage));
+
+
+                String decryptedMessageString = new String(decryptedMessage);
+                System.out.println("Timestamp: " + ts);
+                System.out.println("Decrypted Message: " + decryptedMessageString);
+
             }
             System.out.println("All messages verified");
+
+
+
             System.out.println("Would you like to send a message? (y/n)");
 
 
@@ -122,25 +139,23 @@ public class Client {
 
         } catch (Exception e) {
             System.err.println("Cannot connect to server.");
+            System.err.println(e);
         }
     }
 
 
     //copied from Server class
 
-    public static String bytesToHexString(byte[] b) {
-        StringBuilder sb = new StringBuilder();
-        for (byte x : b) {
-            sb.append(String.format("%02X", x));
-        }
-        return sb.toString();
+    public static String bytesToString(byte[] b) {
+        byte[] b2 = new byte[b.length + 1];
+        b2[0] = 1;
+        System.arraycopy(b, 0, b2, 1, b.length);
+        return new BigInteger(b2).toString(36);
     }
-    public static byte[] hexStringToByteArray(String s) {
-        int len = s.length();
-        byte[] b = new byte[len / 2];
-        for (int i = 0; i < len; i += 2) {
-            b[i / 2] = (byte)((Character.digit(s.charAt(i), 16) << 4) + Character.digit(s.charAt(i+1), 16));
-        }
-        return b;
+
+    public static byte[] stringToBytes(String s) {
+        byte[] b2 = new BigInteger(s, 36).toByteArray();
+        return Arrays.copyOfRange(b2, 1, b2.length);
     }
 }
+
