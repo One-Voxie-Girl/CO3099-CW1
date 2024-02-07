@@ -9,6 +9,7 @@ import java.io.DataOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Array;
+import java.math.BigInteger;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.file.Files;
@@ -20,6 +21,8 @@ import java.util.Arrays;
 import java.util.Date;
 
 public class Server {
+    //TODO: remove sleep deprived comments
+
 
     //hopefully obvious
     private static PrivateKey prvServerKey;
@@ -27,7 +30,7 @@ public class Server {
 
     //messages array structure
     //all values must be strings
-    //use bytesToHexString and hexStringToByteArray to convert between byte[] and string
+    //use bytesToString and stringToByte to convert between byte[] and string
     //messages[i][0] = hashed recipient uid
     //messages[i][1] = encrypted message
     //messages[i][2] = timestamp
@@ -63,8 +66,9 @@ public class Server {
 
 
             //print for debugging remove later
-            System.out.println(pubServerKey);
-            System.out.println(prvServerKey);
+//            System.out.println(pubServerKey);
+//            System.out.println(prvServerKey);
+
         } catch (NoSuchAlgorithmException | InvalidKeySpecException e) {
             throw new RuntimeException(e);
         } catch (Exception e){
@@ -110,7 +114,7 @@ public class Server {
 
                 //TODO: Remove this section, it is only for testing sending encrypted messages to client
                 //reading client public key
-                File f = new File("server.pub");
+                File f = new File("client1.pub");
                 byte[] keyBytes = Files.readAllBytes(f.toPath());
                 X509EncodedKeySpec pubSpec = new X509EncodedKeySpec(keyBytes);
                 KeyFactory kf = KeyFactory.getInstance("RSA");
@@ -120,8 +124,8 @@ public class Server {
                 Cipher cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
                 cipher.init(Cipher.ENCRYPT_MODE, pubClientKey);
                 byte[] encryptedMessage = cipher.doFinal(msg.getBytes());
-                String msgString = bytesToHexString(encryptedMessage);
-                messages[0] = new String[]{uid, msgString, "2021-10-10 10:10:10"};
+                String msgString = bytesToString(encryptedMessage);
+                messages[0] = new String[]{uid,msgString, "2021-10-10 10:10:10"};
                 //end of test section
 
 
@@ -150,7 +154,7 @@ public class Server {
                             sign.update(signature);
                             byte[] signatureBytes = sign.sign();
                             //send signature
-                            dos.writeUTF(bytesToHexString(signatureBytes));
+                            dos.writeUTF(bytesToString(signatureBytes));
                             //remove message from memory
                             messages[i] = null;
                         }
@@ -178,22 +182,18 @@ public class Server {
 
     //cant remember how I got these working but they work???
 
-    public static String bytesToHexString(byte[] b) {
-        StringBuilder sb = new StringBuilder();
-        for (byte x : b) {
-            sb.append(String.format("%02X", x));
-        }
-        return sb.toString();
-    }
-    public static byte[] hexStringToByteArray(String s) {
-        int len = s.length();
-        byte[] b = new byte[len / 2];
-        for (int i = 0; i < len; i += 2) {
-            b[i / 2] = (byte)((Character.digit(s.charAt(i), 16) << 4) + Character.digit(s.charAt(i+1), 16));
-        }
-        return b;
+    public static String bytesToString(byte[] b) {
+        byte[] b2 = new byte[b.length + 1];
+        b2[0] = 1;
+        System.arraycopy(b, 0, b2, 1, b.length);
+        return new BigInteger(b2).toString(36);
     }
 
-
+    public byte[] stringToBytes(String s) {
+        byte[] b2 = new BigInteger(s, 36).toByteArray();
+        return Arrays.copyOfRange(b2, 1, b2.length);
+    }
 }
+
+
 
