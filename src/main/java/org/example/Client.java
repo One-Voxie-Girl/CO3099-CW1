@@ -1,5 +1,6 @@
 package org.example;
 
+import javax.crypto.Cipher;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.File;
@@ -13,9 +14,12 @@ import java.security.spec.X509EncodedKeySpec;
 public class Client {
 
 
+    //hopefully obvious again
     private static PrivateKey prvClientKey;
     private static PublicKey pubClientKey;
     private static PublicKey pubServerKey;
+
+
     public static void main(String[] args) {
         String host = args[0]; // hostname of server
         int port = 0;           // port of server
@@ -109,10 +113,20 @@ public class Client {
                     break;
                 }
             }
+            System.out.println("All messages verified");
+            System.out.println("Would you like to send a message? (y/n)");
+
+
+            //TODO: add send encrypted message functionality here then terminate client
+
+
         } catch (Exception e) {
             System.err.println("Cannot connect to server.");
         }
     }
+
+
+    //copied from Server class
 
     public static String bytesToHexString(byte[] b) {
         StringBuilder sb = new StringBuilder();

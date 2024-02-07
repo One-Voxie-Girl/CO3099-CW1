@@ -1,5 +1,9 @@
 package org.example;
 
+import javax.crypto.BadPaddingException;
+import javax.crypto.Cipher;
+import javax.crypto.IllegalBlockSizeException;
+import javax.crypto.NoSuchPaddingException;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.File;
@@ -17,8 +21,16 @@ import java.util.Date;
 
 public class Server {
 
+    //hopefully obvious
     private static PrivateKey prvServerKey;
     private static PublicKey pubServerKey;
+
+    //messages array structure
+    //all values must be strings
+    //use bytesToHexString and hexStringToByteArray to convert between byte[] and string
+    //messages[i][0] = hashed recipient uid
+    //messages[i][1] = encrypted message
+    //messages[i][2] = timestamp
     private static String[][] messages;
 
     public static void main(String[] args) throws IOException {
@@ -95,7 +107,26 @@ public class Server {
                 String uid = readData;
                 System.out.println(readData);
                 messages = new String[1][3];
-                messages[0] = new String[]{uid, "Hello", "2021-10-10 10:10:10"};
+
+                //TODO: Remove this section, it is only for testing sending encrypted messages to client
+                //reading client public key
+                File f = new File("server.pub");
+                byte[] keyBytes = Files.readAllBytes(f.toPath());
+                X509EncodedKeySpec pubSpec = new X509EncodedKeySpec(keyBytes);
+                KeyFactory kf = KeyFactory.getInstance("RSA");
+                PublicKey pubClientKey = kf.generatePublic(pubSpec);
+                String msg= "Hello";//message to be encrypted
+                //encrypting message
+                Cipher cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
+                cipher.init(Cipher.ENCRYPT_MODE, pubClientKey);
+                byte[] encryptedMessage = cipher.doFinal(msg.getBytes());
+                String msgString = bytesToHexString(encryptedMessage);
+                messages[0] = new String[]{uid, msgString, "2021-10-10 10:10:10"};
+                //end of test section
+
+
+
+
                 try {
                     int messageCount = 0;
                     for (int i = 0; i < messages.length; i++) {
@@ -127,9 +158,14 @@ public class Server {
                 } catch (NullPointerException e) {
                     dos.writeUTF("0");
                 }
+
+
+                //TODO: add receive and save encrypted message functionality here
+
             } catch (IOException e) {
                 e.printStackTrace();
-            } catch (NoSuchAlgorithmException | InvalidKeyException | SignatureException e) {
+            } catch (NoSuchAlgorithmException | InvalidKeyException | SignatureException | InvalidKeySpecException |
+                     NoSuchPaddingException | IllegalBlockSizeException | BadPaddingException e) {//catch literally everything
                 throw new RuntimeException(e);
             }
         }
@@ -138,6 +174,9 @@ public class Server {
 
 
 
+
+
+    //cant remember how I got these working but they work???
 
     public static String bytesToHexString(byte[] b) {
         StringBuilder sb = new StringBuilder();
