@@ -17,8 +17,10 @@ import java.security.*;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.X509EncodedKeySpec;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
+import java.util.List;
 
 public class Server {
     //TODO: remove sleep deprived comments
@@ -34,7 +36,8 @@ public class Server {
     //messages[i][0] = hashed recipient uid
     //messages[i][1] = encrypted message
     //messages[i][2] = timestamp
-    private static String[][] messages;
+    //private static String[][] messages;
+    static List<String[]> messages = new ArrayList<String[]>();
 
     public static void main(String[] args) throws IOException {
 
@@ -110,44 +113,45 @@ public class Server {
                 readData = dis.readUTF();
                 String uid = readData;
                 System.out.println(readData);
-                messages = new String[1][3];
+                //messages = new String[1][3];
 
                 //TODO: Remove this section, it is only for testing sending encrypted messages to client
-                //reading client public key
-                File f = new File("client1.pub");
-                byte[] keyBytes = Files.readAllBytes(f.toPath());
-                X509EncodedKeySpec pubSpec = new X509EncodedKeySpec(keyBytes);
-                KeyFactory kf = KeyFactory.getInstance("RSA");
-                PublicKey pubClientKey = kf.generatePublic(pubSpec);
-                String msg= "Hello";//message to be encrypted
-                //encrypting message
-                Cipher cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
-                cipher.init(Cipher.ENCRYPT_MODE, pubClientKey);
-                byte[] encryptedMessage = cipher.doFinal(msg.getBytes());
-                String msgString = bytesToString(encryptedMessage);
-                messages[0] = new String[]{uid,msgString, "2021-10-10 10:10:10"};
-                //end of test section
+//                //reading client public key
+//                File f = new File("client1.pub");
+//                byte[] keyBytes = Files.readAllBytes(f.toPath());
+//                X509EncodedKeySpec pubSpec = new X509EncodedKeySpec(keyBytes);
+//                KeyFactory kf = KeyFactory.getInstance("RSA");
+//                PublicKey pubClientKey = kf.generatePublic(pubSpec);
+//                String msg= "Hello";//message to be encrypted
+//                //encrypting message
+//                Cipher cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
+//                cipher.init(Cipher.ENCRYPT_MODE, pubClientKey);
+//                byte[] encryptedMessage = cipher.doFinal(msg.getBytes());
+//                String msgString = bytesToString(encryptedMessage);
+//                //messages[0] = new String[]{uid,msgString, "2021-10-10 10:10:10"};
+//                messages.add(new String[]{uid,msgString, "2021-10-10 10:10:10"});
+//                //end of test section
 
 
 
 
                 try {
                     int messageCount = 0;
-                    for (int i = 0; i < messages.length; i++) {
-                        if (messages[i] != null && messages[i][0].equals(uid)) {
+                    for (String[] message : messages) {
+                        if (message != null && message[0].equals(uid)) {
                             messageCount++;
                         }
                     }
                     dos.writeUTF(Integer.toString(messageCount));
 
                     //search for messages
-                    for (int i = 0; i < messages.length; i++) {
-                        if (messages[i] != null && messages[i][0].equals(uid)) {
+                    for (int i = 0; i < messages.size(); i++) {
+                        if (messages.get(i) != null && messages.get(i)[0].equals(uid)) {
                             //send message and timestamp
-                            dos.writeUTF(messages[i][2].toString());
-                            dos.writeUTF(messages[i][1].toString());
+                            dos.writeUTF(messages.get(i)[2].toString());
+                            dos.writeUTF(messages.get(i)[1].toString());
                             //sign message
-                            String signatureString  =  messages[i][2]+ messages[i][1];
+                            String signatureString  =  messages.get(i)[2]+ messages.get(i)[1];
                             byte[] signature = signatureString.getBytes();
                             Signature sign = Signature.getInstance("SHA256withRSA");
                             sign.initSign(prvServerKey);
@@ -156,7 +160,7 @@ public class Server {
                             //send signature
                             dos.writeUTF(bytesToString(signatureBytes));
                             //remove message from memory
-                            messages[i] = null;
+                            messages.set(i, null);
                         }
                     }
                 } catch (NullPointerException e) {
@@ -165,6 +169,64 @@ public class Server {
 
 
                 //TODO: add receive and save encrypted message functionality here
+
+                //Read in all data sent to server
+                String encMsg = dis.readUTF();
+                String msgTs = dis.readUTF();
+                String msgSig = dis.readUTF();
+                String senderUid = dis.readUTF();
+
+                //Get sender public key
+                File f = new File(senderUid + ".pub");
+                byte[] keyBytes = Files.readAllBytes(f.toPath());
+                X509EncodedKeySpec senderPubSpec = new X509EncodedKeySpec(keyBytes);
+                KeyFactory kf = KeyFactory.getInstance("RSA");
+                PublicKey senderPubKey = kf.generatePublic(senderPubSpec);
+
+                //Verify message signature
+                byte[] signatureBytes = stringToBytes(msgSig);
+                Signature sig = Signature.getInstance("SHA256withRSA");
+                sig.initVerify(senderPubKey);
+                sig.update((encMsg+msgTs).getBytes());
+                if (sig.verify(signatureBytes)) {
+                    System.out.println("Signature verified");
+
+                    //Decrypt message
+                    Cipher cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
+                    cipher.init(Cipher.DECRYPT_MODE, prvServerKey);
+                    byte[] decryptedMessage = cipher.doFinal(stringToBytes(encMsg));
+                    String decryptedMessageString = new String(decryptedMessage);
+
+                    //Split message into uid and message contents
+                    List<String> seperatedMsg = Arrays.asList(decryptedMessageString.split(","));
+                    String recipientUid = seperatedMsg.get(0);
+
+                    //Get recipients public key
+                    f = new File(recipientUid + ".pub");
+                    keyBytes = Files.readAllBytes(f.toPath());
+                    X509EncodedKeySpec recipientPubSpec = new X509EncodedKeySpec(keyBytes);
+                    PublicKey recipientPubKey = kf.generatePublic(recipientPubSpec);
+
+                    //Re-encrypt message contents for recipient
+                    cipher.init(Cipher.ENCRYPT_MODE, recipientPubKey);
+                    byte[] encryptedMessage = cipher.doFinal(seperatedMsg.get(1).getBytes());
+                    String msgString = bytesToString(encryptedMessage);
+
+                    //Get hash of recipient uid
+                    String secretstring = "gfhk2024:"+recipientUid;
+                    MessageDigest md = MessageDigest.getInstance("MD5");
+                    md.update(secretstring.getBytes());
+                    byte[] digest = md.digest();
+                    String recipientUidHex = bytesToString(digest);
+
+                    //Save message
+                    messages.add(new String[]{recipientUidHex, msgString, msgTs});
+
+                } else {
+                    System.out.println("Signature verification failed, discarding");
+                }
+
+
 
             } catch (IOException e) {
                 e.printStackTrace();
@@ -189,7 +251,7 @@ public class Server {
         return new BigInteger(b2).toString(36);
     }
 
-    public byte[] stringToBytes(String s) {
+    public static byte[] stringToBytes(String s) {
         byte[] b2 = new BigInteger(s, 36).toByteArray();
         return Arrays.copyOfRange(b2, 1, b2.length);
     }

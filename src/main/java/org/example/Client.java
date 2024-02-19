@@ -11,7 +11,13 @@ import java.security.*;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.X509EncodedKeySpec;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.Arrays;
+import java.util.Date;
+import java.util.Scanner;
 
 public class Client {
 
@@ -25,6 +31,7 @@ public class Client {
     public static void main(String[] args) {
         String host = args[0]; // hostname of server
         int port = 0;           // port of server
+        String uid = args[2];
 
         //fetching port from command line arguments
         try{
@@ -37,7 +44,7 @@ public class Client {
 
         try{
             //reading client private key
-            String path = args[2] + ".prv";
+            String path = uid + ".prv";
             File f = new File(path);
             byte[] keyBytes = Files.readAllBytes(f.toPath());
             PKCS8EncodedKeySpec prvSpec = new PKCS8EncodedKeySpec(keyBytes);
@@ -45,7 +52,7 @@ public class Client {
             prvClientKey = kf.generatePrivate(prvSpec);
 
             //reading client public key
-            path = args[2] + ".pub";
+            path = uid + ".pub";
             f = new File(path);
             keyBytes = Files.readAllBytes(f.toPath());
             X509EncodedKeySpec pubSpec = new X509EncodedKeySpec(keyBytes);
@@ -77,7 +84,7 @@ public class Client {
             Socket s = new Socket(host, port);
 
             //hashing uid to hex
-            String secretstring = "gfhk2024:"+args[2]; // secret string
+            String secretstring = "gfhk2024:"+uid; // secret string
             MessageDigest md = MessageDigest.getInstance("MD5");
             md.update(secretstring.getBytes());
             byte[] digest = md.digest();
@@ -135,6 +142,37 @@ public class Client {
 
 
             //TODO: add send encrypted message functionality here then terminate client
+
+            Scanner input = new Scanner(System.in);
+            if (input.nextLine().toLowerCase().equals("y")) {
+                System.out.println("Please enter id of recipient");
+                String recipient = input.nextLine();
+                System.out.println("Please enter your message");
+                String message = input.nextLine();
+
+                String toEncrypt = recipient + "," + message;
+
+                Cipher cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
+                cipher.init(Cipher.ENCRYPT_MODE, pubServerKey);
+                byte[] encryptedMessage = cipher.doFinal(toEncrypt.getBytes());
+                String msgString = bytesToString(encryptedMessage);
+
+                SimpleDateFormat formatter = new SimpleDateFormat("E dd MMM HH:mm:ss z yyyy");
+                String timestamp = formatter.format(new Date());
+
+                String signatureString = msgString + timestamp;
+                byte[] signature = signatureString.getBytes();
+                Signature sign = Signature.getInstance("SHA256withRSA");
+                sign.initSign(prvClientKey);
+                sign.update(signature);
+                byte[] signatureBytes = sign.sign();
+
+                dos.writeUTF(msgString);
+                dos.writeUTF(timestamp);
+                dos.writeUTF(bytesToString(signatureBytes));
+                dos.writeUTF(uid);
+
+            }
 
 
         } catch (Exception e) {
