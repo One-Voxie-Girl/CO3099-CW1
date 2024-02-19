@@ -12,6 +12,7 @@ import java.lang.reflect.Array;
 import java.math.BigInteger;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.SocketException;
 import java.nio.file.Files;
 import java.security.*;
 import java.security.spec.InvalidKeySpecException;
@@ -40,8 +41,6 @@ public class Server {
     static List<String[]> messages = new ArrayList<String[]>();
 
     public static void main(String[] args) throws IOException {
-
-
 
 
         //fetching port from command line arguments
@@ -91,8 +90,6 @@ public class Server {
 
         }
 
-
-
     }
 
     private static class ClientHandler extends Thread {
@@ -113,26 +110,6 @@ public class Server {
                 readData = dis.readUTF();
                 String uid = readData;
                 System.out.println(readData);
-                //messages = new String[1][3];
-
-                //TODO: Remove this section, it is only for testing sending encrypted messages to client
-//                //reading client public key
-//                File f = new File("client1.pub");
-//                byte[] keyBytes = Files.readAllBytes(f.toPath());
-//                X509EncodedKeySpec pubSpec = new X509EncodedKeySpec(keyBytes);
-//                KeyFactory kf = KeyFactory.getInstance("RSA");
-//                PublicKey pubClientKey = kf.generatePublic(pubSpec);
-//                String msg= "Hello";//message to be encrypted
-//                //encrypting message
-//                Cipher cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
-//                cipher.init(Cipher.ENCRYPT_MODE, pubClientKey);
-//                byte[] encryptedMessage = cipher.doFinal(msg.getBytes());
-//                String msgString = bytesToString(encryptedMessage);
-//                //messages[0] = new String[]{uid,msgString, "2021-10-10 10:10:10"};
-//                messages.add(new String[]{uid,msgString, "2021-10-10 10:10:10"});
-//                //end of test section
-
-
 
 
                 try {
@@ -151,7 +128,7 @@ public class Server {
                             dos.writeUTF(messages.get(i)[2].toString());
                             dos.writeUTF(messages.get(i)[1].toString());
                             //sign message
-                            String signatureString  =  messages.get(i)[2]+ messages.get(i)[1];
+                            String signatureString = messages.get(i)[2] + messages.get(i)[1];
                             byte[] signature = signatureString.getBytes();
                             Signature sign = Signature.getInstance("SHA256withRSA");
                             sign.initSign(prvServerKey);
@@ -167,8 +144,7 @@ public class Server {
                     dos.writeUTF("0");
                 }
 
-
-                //TODO: add receive and save encrypted message functionality here
+                //RECEIVE MESSAGE FROM CLIENT
 
                 //Read in all data sent to server
                 String encMsg = dis.readUTF();
@@ -187,7 +163,7 @@ public class Server {
                 byte[] signatureBytes = stringToBytes(msgSig);
                 Signature sig = Signature.getInstance("SHA256withRSA");
                 sig.initVerify(senderPubKey);
-                sig.update((encMsg+msgTs).getBytes());
+                sig.update((encMsg + msgTs).getBytes());
                 if (sig.verify(signatureBytes)) {
                     System.out.println("Signature verified");
 
@@ -213,7 +189,7 @@ public class Server {
                     String msgString = bytesToString(encryptedMessage);
 
                     //Get hash of recipient uid
-                    String secretstring = "gfhk2024:"+recipientUid;
+                    String secretstring = "gfhk2024:" + recipientUid;
                     MessageDigest md = MessageDigest.getInstance("MD5");
                     md.update(secretstring.getBytes());
                     byte[] digest = md.digest();
@@ -227,22 +203,16 @@ public class Server {
                 }
 
 
-
             } catch (IOException e) {
                 e.printStackTrace();
             } catch (NoSuchAlgorithmException | InvalidKeyException | SignatureException | InvalidKeySpecException |
-                     NoSuchPaddingException | IllegalBlockSizeException | BadPaddingException e) {//catch literally everything
+                     NoSuchPaddingException | IllegalBlockSizeException |
+                     BadPaddingException e) {//catch literally everything
                 throw new RuntimeException(e);
-            }
+            } 
         }
     }
 
-
-
-
-
-
-    //cant remember how I got these working but they work???
 
     public static String bytesToString(byte[] b) {
         byte[] b2 = new byte[b.length + 1];

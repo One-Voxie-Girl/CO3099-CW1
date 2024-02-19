@@ -141,8 +141,7 @@ public class Client {
             System.out.println("Would you like to send a message? (y/n)");
 
 
-            //TODO: add send encrypted message functionality here then terminate client
-
+            //Take all user inputs
             Scanner input = new Scanner(System.in);
             if (input.nextLine().toLowerCase().equals("y")) {
                 System.out.println("Please enter id of recipient");
@@ -150,16 +149,18 @@ public class Client {
                 System.out.println("Please enter your message");
                 String message = input.nextLine();
 
+                //Encrypt message and recipient
                 String toEncrypt = recipient + "," + message;
-
                 Cipher cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
                 cipher.init(Cipher.ENCRYPT_MODE, pubServerKey);
                 byte[] encryptedMessage = cipher.doFinal(toEncrypt.getBytes());
                 String msgString = bytesToString(encryptedMessage);
 
+                //Get timestamp
                 SimpleDateFormat formatter = new SimpleDateFormat("E dd MMM HH:mm:ss z yyyy");
                 String timestamp = formatter.format(new Date());
 
+                //Create signature
                 String signatureString = msgString + timestamp;
                 byte[] signature = signatureString.getBytes();
                 Signature sign = Signature.getInstance("SHA256withRSA");
@@ -167,6 +168,7 @@ public class Client {
                 sign.update(signature);
                 byte[] signatureBytes = sign.sign();
 
+                //Send message to server
                 dos.writeUTF(msgString);
                 dos.writeUTF(timestamp);
                 dos.writeUTF(bytesToString(signatureBytes));
