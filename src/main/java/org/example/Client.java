@@ -144,6 +144,7 @@ public class Client {
             //Take all user inputs
             Scanner input = new Scanner(System.in);
             if (input.nextLine().toLowerCase().equals("y")) {
+                dos.writeUTF("msg");
                 System.out.println("Please enter id of recipient");
                 String recipient = input.nextLine();
                 System.out.println("Please enter your message");
@@ -174,6 +175,9 @@ public class Client {
                 dos.writeUTF(bytesToString(signatureBytes));
                 dos.writeUTF(uid);
 
+            }
+            else {
+                dos.writeUTF("close");
             }
 
 

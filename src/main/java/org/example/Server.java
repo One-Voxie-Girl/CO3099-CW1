@@ -24,10 +24,7 @@ import java.util.Date;
 import java.util.List;
 
 public class Server {
-    //TODO: remove sleep deprived comments
 
-
-    //hopefully obvious
     private static PrivateKey prvServerKey;
     private static PublicKey pubServerKey;
 
@@ -67,10 +64,6 @@ public class Server {
             pubServerKey = kf.generatePublic(pubSpec);
 
 
-            //print for debugging remove later
-//            System.out.println(pubServerKey);
-//            System.out.println(prvServerKey);
-
         } catch (NoSuchAlgorithmException | InvalidKeySpecException e) {
             throw new RuntimeException(e);
         } catch (Exception e){
@@ -109,7 +102,7 @@ public class Server {
                 String readData = null;
                 readData = dis.readUTF();
                 String uid = readData;
-                System.out.println(readData);
+                System.out.println("Login from: " + readData);
 
 
                 try {
@@ -120,6 +113,7 @@ public class Server {
                         }
                     }
                     dos.writeUTF(Integer.toString(messageCount));
+                    System.out.println("Delivering " + messageCount + " message(s)");
 
                     //search for messages
                     for (int i = 0; i < messages.size(); i++) {
@@ -146,11 +140,18 @@ public class Server {
 
                 //RECEIVE MESSAGE FROM CLIENT
 
+                if (dis.readUTF().equals("close")) {
+                    return;
+                }
+
                 //Read in all data sent to server
                 String encMsg = dis.readUTF();
                 String msgTs = dis.readUTF();
                 String msgSig = dis.readUTF();
                 String senderUid = dis.readUTF();
+
+                System.out.println("Incoming message from " + senderUid);
+                System.out.println(msgTs);
 
                 //Get sender public key
                 File f = new File(senderUid + ".pub");
@@ -176,6 +177,9 @@ public class Server {
                     //Split message into uid and message contents
                     List<String> seperatedMsg = Arrays.asList(decryptedMessageString.split(","));
                     String recipientUid = seperatedMsg.get(0);
+
+                    System.out.println("Recipient: " + recipientUid);
+                    System.out.println("Message: " + seperatedMsg.get(1));
 
                     //Get recipients public key
                     f = new File(recipientUid + ".pub");
@@ -209,7 +213,7 @@ public class Server {
                      NoSuchPaddingException | IllegalBlockSizeException |
                      BadPaddingException e) {//catch literally everything
                 throw new RuntimeException(e);
-            } 
+            }
         }
     }
 
